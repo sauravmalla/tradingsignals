@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>TradingSignals</title>
+<title>MAX Signals</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
@@ -119,6 +119,32 @@ button,input,select{font:inherit;color:inherit}
 td.tickUp{animation:tickUpK .8s ease-out;color:var(--pos)}
 td.tickDown{animation:tickDownK .8s ease-out;color:var(--neg)}
 @media (prefers-reduced-motion:reduce){ td.tickUp,td.tickDown{animation:none} }
+
+/* Bullish / bearish scanner */
+.scBar{position:relative;display:inline-block;vertical-align:middle;width:90px;height:8px;border-radius:4px;background:var(--panel2);margin-right:6px}
+.scBar::after{content:"";position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:var(--muted)}
+.scBar span{position:absolute;top:0;height:100%;border-radius:4px}
+.scPill{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;white-space:nowrap}
+
+/* Market outlook */
+.outlook{margin:8px 8px 0;border:1px solid var(--line);border-radius:6px;background:var(--panel);padding:8px 14px 4px}
+.olHead{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding-bottom:6px}
+.olHead h2{font-size:15px;margin:0}
+.olHead .btn.small{margin-left:0}
+.olHead #olRefresh{margin-left:auto}
+.olPill{font-size:13px;font-weight:700;padding:3px 12px;border-radius:12px;background:#787B8633;color:var(--muted)}
+.olPill.bull{background:#089981;color:#fff} .olPill.bear{background:#F23645;color:#fff} .olPill.neutral{background:#787B86;color:#fff}
+.olScore{font-size:12px;color:var(--muted)}
+.olWhen{font-size:12px;color:var(--muted)}
+.olGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px;margin:4px 0 8px}
+.olCard{border:1px solid var(--line);border-radius:6px;background:var(--bg);padding:7px 10px;font-size:12px;line-height:1.35}
+.olCard .t{display:flex;justify-content:space-between;gap:6px;color:var(--muted)}
+.olCard .v{font-size:15px;font-weight:700;margin:2px 0;font-variant-numeric:tabular-nums}
+.olCard .d{color:var(--muted)}
+.olTag{font-size:10px;font-weight:700;padding:0 6px;border-radius:8px;white-space:nowrap}
+.olTag.bull{background:#08998126;color:var(--pos)} .olTag.bear{background:#F2364526;color:var(--neg)} .olTag.neutral{background:#787B8626;color:var(--muted)} .olTag.na{background:transparent;color:var(--muted)}
+.olCoin{font-size:12px;margin:0 0 4px}
+.outlook.collapsed #olBody{display:none}
 
 /* Candle hover box (original look) */
 .hoverTip{position:absolute;z-index:6;pointer-events:none;min-width:190px;padding:8px 10px;border-radius:6px;background:var(--bg);border:1px solid var(--line);box-shadow:0 6px 20px rgba(0,0,0,.16);font-size:12px;font-variant-numeric:tabular-nums}
@@ -252,7 +278,7 @@ footer{padding:0 16px 30px;color:var(--muted);font-size:12px;max-width:90ch}
 <body>
 
 <header class="bar">
-  <div class="brand"><i aria-hidden="true"></i>Trading Signals</div>
+  <div class="brand"><i aria-hidden="true"></i>MAX Signals</div>
   <form id="loadForm" class="controls">
     <div class="symBox">
       <label>Pair<input id="sym" autocomplete="off" spellcheck="false" role="combobox" aria-expanded="false" aria-controls="symList" aria-label="Search pair, for example SOL or SUIUSDT.P"></label>
@@ -270,6 +296,22 @@ footer{padding:0 16px 30px;color:var(--muted);font-size:12px;max-width:90ch}
     <button id="alertBtn" class="btn" type="button">Turn on alerts</button>
   </div>
 </header>
+
+<section class="outlook" id="outlook" aria-label="Market outlook">
+  <div class="olHead">
+    <h2>Market outlook</h2>
+    <span class="olPill" id="olReading">Loading…</span>
+    <span class="olScore num" id="olScore"></span>
+    <span class="olWhen" id="olWhen"></span>
+    <button type="button" class="btn small" id="olRefresh">Refresh</button>
+    <button type="button" class="btn small" id="olToggle" aria-expanded="true">Hide details</button>
+  </div>
+  <div id="olBody">
+    <div class="olGrid" id="olGrid"></div>
+    <p class="olCoin" id="olCoin"></p>
+    <p class="hint">A summary of what traders watch before a move shows on short charts: Bitcoin's bigger trend, how crowded futures positions are, how many coins are falling or rising, and sentiment. Crowded positioning is read the contrarian way (too many longs = downside risk). It's a lean, not a forecast. Big news (US inflation data, Fed decisions, token unlocks) can override all of it. Updates every 5 minutes.</p>
+  </div>
+</section>
 
 <div class="workspace" id="workspace">
 <aside class="watch" aria-label="Watchlist">
@@ -325,10 +367,25 @@ footer{padding:0 16px 30px;color:var(--muted);font-size:12px;max-width:90ch}
 <section class="tabs">
   <div class="tablist" role="tablist">
     <button role="tab" aria-selected="false" aria-expanded="false" data-tab="trades">Trades</button>
+    <button role="tab" aria-selected="false" aria-expanded="false" data-tab="scanner">Bullish / bearish scanner</button>
     <button role="tab" aria-selected="false" aria-expanded="false" data-tab="coins">Coins by supply</button>
     <button role="tab" aria-selected="false" aria-expanded="false" data-tab="settings">Settings</button>
   </div>
   <div class="panel" id="panel-trades" hidden><div class="tableWrap"><table class="list" id="tradesTable"></table></div></div>
+  <div class="panel" id="panel-scanner" hidden>
+    <div class="coinBar">
+      <label>Market <select id="scMarket"><option value="perp">Perpetual</option><option value="spot">Spot</option></select></label>
+      <label>Timeframe <select id="scTf"><option value="5m">5m</option><option value="15m">15m</option><option value="1h">1h</option><option value="4h">4h</option></select></label>
+      <label>Coins <select id="scCount"><option value="30">Top 30</option><option value="50">Top 50</option><option value="100">Top 100</option><option value="watch">My watchlist</option></select></label>
+      <label>Show <select id="scFilter"><option value="all">All</option><option value="turn">Turning now ⚡</option><option value="bull">Bullish</option><option value="bear">Bearish</option><option value="hype">Hype building / hyped 🔥</option><option value="fall">Fall risk after hype ⚠️</option></select></label>
+      <label>Sort <select id="scSort"><option value="turn">Newest turns first</option><option value="bull">Most bullish first</option><option value="bear">Most bearish first</option></select></label>
+      <label class="chk"><input type="checkbox" id="scAlert"> Alert me when a coin turns</label>
+      <button class="btn" type="button" id="scRun" style="padding:4px 12px">Scan now</button>
+      <span id="scStatus"></span>
+    </div>
+    <div class="tableWrap coinWrap"><table class="list coinTable" id="scanTable"></table></div>
+    <p class="hint">Each coin is checked with the MAX ribbon trend, RSI, ADX/DI, volume and the higher-timeframe trend, giving a strength score from −100 (strongly bearish) to +100 (strongly bullish). "Turning ⚡" means the trend flipped in the last 1–2 candles, or momentum just swung from neutral to strong: the earliest heads-up, but also the least proven. Rescans every minute while open, and every 5 minutes in the background when alerts are on.</p>
+  </div>
   <div class="panel" id="panel-coins" hidden>
     <div class="coinBar">
       <input id="coinSearch" type="search" placeholder="Search coin" aria-label="Search coin">
@@ -364,13 +421,16 @@ footer{padding:0 16px 30px;color:var(--muted);font-size:12px;max-width:90ch}
 const TF_SEC = {"1m":60,"3m":180,"5m":300,"15m":900,"30m":1800,"1h":3600,"2h":7200,"4h":14400,"1d":86400};
 const DEFAULTS = {
   symbol:"SOLUSDT", market:"perp", tf:"5m", htf:"1h", legacy:true, dark:false,
-  showLabels:true, showLivePre:true, showBreaks:true, floats:null, showVolume:true, showSR:true, showVP:true, showBook:false, ribbonFill:false, tz:"local", daysToShow:7, decimals:"auto",
+  showLabels:true, showLivePre:true, showBreaks:true, floats:null, showVolume:true, showSR:true, showHype:true, showRev:true, showVP:true, showBook:false, ribbonFill:false, tz:"local", daysToShow:7, decimals:"auto",
   autoTune:true, blockSideways:true, useRetest:true, slopeBars:3,
   useAdx:true, minAdx:20, useHTF:true, htfLen:50,
   useVol:true, volMult:1.0, useRsi:true, rsiBuyMax:75, rsiSellMin:25,
   useCandle:true, maxExt:1.0, cooldown:3,
   flip:true, conservative:true, useFees:true, fee:0.06,
   capital:100, useLev:true, maxLev:10,
+  scan:{market:"perp", tf:"15m", count:"50", filter:"all", sort:"turn", alerts:false},
+  outlookOpen:true,
+  pullbackEntry:true, pullbackAuto:true, pullbackBars:8, tradeDir:"both",
   earlyExit:true, earlyAdverse:0.4, earlyConfirm:2, earlyWarn:true,
   showWatch:true,
   watchlist:[{symbol:"BTCUSDT",market:"perp"},{symbol:"ETHUSDT",market:"perp"},{symbol:"SOLUSDT",market:"perp"},{symbol:"SUIUSDT",market:"perp"}]
@@ -394,8 +454,14 @@ const FIELDS = [
   ["Chart display", [
     ["decimals","Price decimals","select",[["auto","Auto (exchange precision)"],["2","2"],["3","3"],["4","4"],["5","5"],["6","6"],["7","7"],["8","8"]]],
     ["showLabels","Show signal labels","bool"], ["showLivePre","Show live PRE-BUY / PRE-SELL labels","bool"], ["showBreaks","Show BREAK P labels","bool"],
-    ["showVolume","Show volume bars","bool"], ["showSR","Show support and resistance","bool"], ["showVP","Show volume profile (traded volume at each price)","bool"], ["showBook","Show order book (pending buy and sell orders)","bool"], ["ribbonFill","Shade between the ribbon lines","bool"],
+    ["showVolume","Show volume bars","bool"], ["showSR","Show support and resistance","bool"], ["showHype","Show hype building / hyped / fall risk signals","bool"], ["showRev","Show bounce back / fall back signals at support and resistance","bool"], ["showVP","Show volume profile (traded volume at each price)","bool"], ["showBook","Show order book (pending buy and sell orders)","bool"], ["ribbonFill","Shade between the ribbon lines","bool"],
     ["tz","Daily table time zone","select",TZ_OPTS], ["daysToShow","Days in daily table","num",1,1]
+  ]],
+  ["Pullback entry", [
+    ["pullbackEntry","Wait for a pullback before entering (no chasing)","bool"],
+    ["pullbackAuto","Set the waiting time automatically for each coin","bool"],
+    ["pullbackBars","Candles to wait (when automatic is off)","num",2,1],
+    ["tradeDir","Futures trade direction","select",[["both","Long and short"],["long","Long (buy) only"],["short","Short (sell) only"]]]
   ]],
   ["Early exit", [
     ["earlyExit","Exit early when the market turns against the trade","bool"],
@@ -463,6 +529,34 @@ function dayKey(t){
 }
 
 // ============================================================================
+// HYPE DETECTOR (same rules as the Pine script's Hype / Fall Warning module)
+//  BUILDING: price up strongly over the lookback, volume 1.5x+ average, RSI rising above 55,
+//            above the ribbon but not yet stretched far above it
+//  HYPED:    bigger pump, volume 2.5x+, RSI 72+, far above the ribbon, candles expanding
+//  FALL:     within a few candles after HYPED, at least 3 of 5 weakness signs appear
+// ============================================================================
+function hypeSeries(O,H,L,C,V,upper,atr,rsi,P){
+  const n=C.length, hVol=sma(V,50), rngAvg=sma(H.map((h,i)=>h-L[i]),50), fastE=ema(C,9);
+  const state=new Array(n).fill("NORMAL"), move=nanArr(n), vr=nanArr(n), weak=new Array(n).fill(0);
+  let lastHyped=-1e9;
+  for(let i=1;i<n;i++){
+    const b=i-P.hypeLook;
+    move[i]= b>=0 && C[b]!==0 ? (C[i]-C[b])/C[b]*100 : NaN;
+    vr[i]= hVol[i]>0 ? V[i]/hVol[i] : NaN;
+    const far= C[i]>upper[i]+atr[i]*0.6;
+    const build= move[i]>=P.hypeBuild && V[i]>hVol[i]*1.5 && rsi[i]>rsi[i-1] && rsi[i]>55 && C[i]>upper[i] && !far;
+    const hyped= move[i]>=P.hypePump && V[i]>hVol[i]*2.5 && rsi[i]>=72 && far && (H[i]-L[i])>rngAvg[i]*1.4;
+    if(hyped) lastHyped=i;
+    let hiPrev=-Infinity;
+    for(let k=Math.max(0,i-P.fallWin);k<i;k++) hiPrev=Math.max(hiPrev,H[k]);
+    weak[i]=(C[i]<O[i]?1:0)+(rsi[i]<rsi[i-1]?1:0)+(i>=P.fallWin&&H[i]<=hiPrev?1:0)+(C[i]<fastE[i]?1:0)+((C[i]<upper[i]||C[i]<C[i-1]-atr[i]*0.25)?1:0);
+    const fall= i-lastHyped<=P.fallWin && weak[i]>=3;
+    state[i]= fall?"FALL" : hyped?"HYPED" : build?"BUILDING" : "NORMAL";
+  }
+  return {state, move, vr, weak};
+}
+
+// ============================================================================
 // SIGNAL ENGINE (same rules as the Pine script)
 // ============================================================================
 function compute(C, HT, cfg){
@@ -515,22 +609,7 @@ function compute(C, HT, cfg){
   const volOk=i=> !cfg.useVol || Number.isNaN(volAvg[i]) || volAvg[i]===0 || V[i]>=volAvg[i]*cfg.volMult;
 
   // Hype / fall risk
-  const hVol=sma(V,50), rngAvg=sma(C.map(x=>x.h-x.l),50), fastE=ema(Cl,9);
-  const fall=new Array(n).fill(false), hype=new Array(n).fill("NORMAL");
-  let lastHyped=-1e9;
-  for(let i=1;i<n;i++){
-    const b=i-P.hypeLook;
-    const move= b>=0 && Cl[b]!==0 ? (Cl[i]-Cl[b])/Cl[b]*100 : NaN;
-    const far= Cl[i]>upper[i]+atr[i]*0.6;
-    const build= move>=P.hypeBuild && V[i]>hVol[i]*1.5 && rsi[i]>rsi[i-1] && rsi[i]>55 && Cl[i]>upper[i] && !far;
-    const hyped= move>=P.hypePump && V[i]>hVol[i]*2.5 && rsi[i]>=72 && far && (H[i]-L[i])>rngAvg[i]*1.4;
-    if(hyped) lastHyped=i;
-    let hiPrev=-Infinity;
-    for(let k=Math.max(0,i-P.fallWin);k<i;k++) hiPrev=Math.max(hiPrev,H[k]);
-    const score=(Cl[i]<O[i]?1:0)+(rsi[i]<rsi[i-1]?1:0)+(i>=P.fallWin&&H[i]<=hiPrev?1:0)+(Cl[i]<fastE[i]?1:0)+((Cl[i]<upper[i]||Cl[i]<Cl[i-1]-atr[i]*0.25)?1:0);
-    fall[i]= i-lastHyped<=P.fallWin && score>=3;
-    hype[i]= fall[i]?"FALL" : hyped?"HYPED" : build?"BUILDING" : "NORMAL";
-  }
+  const HY=hypeSeries(O,H,L,Cl,V,upper,atr,rsi,P), hype=HY.state, fall=hype.map(x=>x==="FALL");
 
   // Trendlines with breaks (BREAK P labels)
   const tlAtr=rma(TR,14), LEN=14, tlUp=new Array(n).fill(false), tlDn=new Array(n).fill(false);
@@ -597,10 +676,11 @@ function compute(C, HT, cfg){
     const pullB= cfg.legacy || touchL[i], pullS= cfg.legacy || touchU[i];
     const baseB= (ts[i]===1&&ts[i-1]!==1) || (ts[i]===1&&Cl[i]>upper[i]&&pullB);
     const baseS= (ts[i]===-1&&ts[i-1]!==-1) || (ts[i]===-1&&Cl[i]<lower[i]&&pullS);
-    res.buy= allow && side===0 && baseB && res.whyB==="READY" && (!cfg.useRetest || touchL[i]);
+    const dir= cfg.market==="spot" ? "long" : (cfg.tradeDir||"both");
+    res.buy= dir!=="short" && allow && side===0 && baseB && res.whyB==="READY" && (!cfg.useRetest || touchL[i]);
     // Spot can't be shorted, so spot pairs only get BUY signals (and their TP/SL/exits).
     if(cfg.market==="spot") res.whyS="SPOT: BUY ONLY";
-    res.sell= cfg.market!=="spot" && !res.buy && allow && side===0 && baseS && res.whyS==="READY" && (!cfg.useRetest || touchU[i]);
+    res.sell= dir!=="long" && !res.buy && allow && side===0 && baseS && res.whyS==="READY" && (!cfg.useRetest || touchU[i]);
     return res;
   }
 
@@ -614,13 +694,53 @@ function compute(C, HT, cfg){
   const levNow=()=> cfg.useLev ? st.lev : 1;
   const hitPct=px=> st.side*(px-st.entry)/st.entry*levNow()*100;
 
-  function open(i,d){
+  function open(i,d,slOverride,pb){
     const lv=levAt(i), e=Cl[i];
-    Object.assign(st,{side:d, entry:e, sl:e-d*atr[i]*P.sl, tp1:e+d*atr[i]*P.tp1, tp2:e+d*atr[i]*tp2ATR[i],
+    Object.assign(st,{side:d, entry:e, sl: Number.isFinite(slOverride) ? slOverride : e-d*atr[i]*P.sl, tp1:e+d*atr[i]*P.tp1, tp2:e+d*atr[i]*tp2ATR[i],
       entryIdx:i, entryTime:T[i], tp1Hit:false, be:false, trail:NaN, lev:lv.lev, lvl:lv.lvl, tp1Idx:-1, reUsed:false, warned:false});
     const ep=p=> d*(p-e)/e*lv.lev*100;
     events.push({i, time:T[i], kind:d===1?"BUY":"SELL", side:d, price:e, sl:st.sl, tp1:st.tp1, tp2:st.tp2,
-      lev:lv.lev, lvl:lv.lvl, spot:cfg.market==="spot", slPct:ep(st.sl), tp1Pct:ep(st.tp1), tp2Pct:ep(st.tp2), brk:d===1?tlUp[i]:tlDn[i]});
+      lev:lv.lev, lvl:lv.lvl, spot:cfg.market==="spot", slPct:ep(st.sl), tp1Pct:ep(st.tp1), tp2Pct:ep(st.tp2), brk:d===1?tlUp[i]:tlDn[i], pb:!!pb});
+  }
+
+  // ---- Pullback entry: after a signal, wait for price to dip back into the ribbon zone,
+  // then enter only when a candle closes back in the trade direction. The stop goes just beyond
+  // the pullback's extreme, so it sits behind real structure instead of a fixed distance.
+  let pend=null;
+  // Automatic waiting time: start from the timeframe (about 30 min to a few hours of real time),
+  // then shorten it when the coin is moving fast or trending hard (pullbacks are quick and shallow),
+  // and lengthen it when the coin is quiet (pullbacks take longer to form).
+  const atrAvg=sma(atr,100);
+  function pbBars(i){
+    if(!cfg.pullbackAuto) return {n:Math.max(2,Math.round(cfg.pullbackBars)), why:"manual"};
+    const tf=TF_SEC[cfg.tf]||300;
+    let n= tf<=60?10 : tf<=180?8 : tf<=300?7 : tf<=900?5 : tf<=1800?5 : tf<=3600?4 : 3;
+    const why=[];
+    const vr= atrAvg[i]>0 ? atr[i]/atrAvg[i] : 1;
+    if(vr>1.4){ n-=2; why.push("very volatile"); } else if(vr>1.15){ n-=1; why.push("volatile"); }
+    else if(vr<0.75){ n+=2; why.push("very quiet"); } else if(vr<0.9){ n+=1; why.push("quiet"); }
+    if(Number.isFinite(adx[i])){
+      if(adx[i]>=35){ n-=1; why.push("strong trend"); } else if(adx[i]<18){ n+=1; why.push("weak trend"); }
+    }
+    return {n:Math.max(3, Math.min(15, n)), why: why.length ? why.join(", ") : "normal market"};
+  }
+  const pbZone=(i,d)=> d===1 ? {lo:emaS[i]-atr[i]*0.2, hi:upper[i]} : {lo:lower[i], hi:emaS[i]+atr[i]*0.2};
+  function pbStop(i,p){
+    const d=p.side, raw= d===1 ? p.ext-atr[i]*0.25 : p.ext+atr[i]*0.25;
+    const dist=Math.min(Math.max(Math.abs(Cl[i]-raw), atr[i]*0.5), atr[i]*P.sl*1.3);
+    return Cl[i]-d*dist;
+  }
+  // one bar of a pending setup: "enter", "cancel:<why>" or ""
+  function pbStep(i,p){
+    const d=p.side, z=pbZone(i,d), touch= d===1 ? L[i]<=z.hi : H[i]>=z.lo;
+    p.ext= d===1 ? Math.min(p.ext,L[i]) : Math.max(p.ext,H[i]);
+    p.touched=p.touched||touch;
+    if(d===1 ? Cl[i]<lower[i] : Cl[i]>upper[i]) return "cancel:TREND FAILED";
+    if(ts[i]!==d) return "cancel:TREND FLIPPED";
+    if(!p.touched && (d===1 ? H[i]>=p.miss : L[i]<=p.miss)) return "cancel:MISSED (no pullback)";
+    if(p.touched && (d===1 ? Cl[i]>O[i] && Cl[i]>emaS[i] : Cl[i]<O[i] && Cl[i]<emaS[i])) return "enter";
+    if(i-p.i>=p.bars) return "cancel:EXPIRED";
+    return "";
   }
   function close(i, px, reason, partial, same, reasons){
     const d=st.side, lev=levNow();
@@ -696,12 +816,93 @@ function compute(C, HT, cfg){
       if(prevSide===1 && ts[i]===-1 && ts[i-1]!==-1 && L[i]>st.sl) close(i, Cl[i], "FLIP", false);
       else if(prevSide===-1 && ts[i]===1 && ts[i-1]!==1 && H[i]<st.sl) close(i, Cl[i], "FLIP", false);
     }
-    if(prevSide===0){
-      const s=signals(i,0,st.lastExit);
-      if(s.buy) open(i,1); else if(s.sell) open(i,-1);
+    if(prevSide===0 && pend && i>pend.i){
+      const r=pbStep(i,pend);
+      if(r==="enter"){ const p=pend; pend=null; open(i,p.side,pbStop(i,p),true); }
+      else if(r.startsWith("cancel:")){ events.push({i, time:T[i], kind:"CANCEL", side:pend.side, price:Cl[i], why:r.slice(7)}); pend=null; st.lastExit=i; }
+    }
+    else if(prevSide===0 && !pend){
+      const s=signals(i,0,st.lastExit), d= s.buy?1 : s.sell?-1 : 0;
+      if(d && cfg.pullbackEntry){
+        const z=pbZone(i,d);
+        const wb=pbBars(i);
+        pend={side:d, i, ext: d===1?L[i]:H[i], touched:false, miss:Cl[i]+d*atr[i]*P.tp1, bars:wb.n};
+        events.push({i, time:T[i], kind:"SETUP", side:d, spot:cfg.market==="spot", price:Cl[i], zlo:z.lo, zhi:z.hi, bars:wb.n, auto:cfg.pullbackAuto, why:wb.why});
+      }
+      else if(d) open(i,d);
     }
     if(st.side!==0 && i>st.entryIdx) manage(i);
     if(st.side!==0){ slLine[i]=st.sl; if(st.be) trailLine[i]=st.trail; }
+  }
+
+  for(let i=Math.max(warm,1);i<closedN;i++){
+    if(hype[i]!=="NORMAL" && hype[i]!==hype[i-1])
+      events.push({i, time:T[i], kind:"HYPE", state:hype[i], side:0, price:Cl[i], move:HY.move[i], vr:HY.vr[i], rsi:rsi[i], weak:HY.weak[i]});
+  }
+
+  // ---- Bounce back (up from support) / fall back (down from resistance) ----
+  // Levels are swing highs/lows that were already confirmed at that time (no peeking ahead).
+  // A level counts once price has turned there at least twice.
+  const RV_LB=10, pivots=[];
+  for(let k=RV_LB;k<n-RV_LB;k++){
+    let isH=true, isL=true;
+    for(let j=k-RV_LB;j<=k+RV_LB;j++){ if(j===k) continue; if(H[j]>H[k]) isH=false; if(L[j]<L[k]) isL=false; if(!isH&&!isL) break; }
+    if(isH) pivots.push({p:H[k], k}); if(isL) pivots.push({p:L[k], k});
+  }
+  const rngAvg20=sma(H.map((h,j)=>h-L[j]),50);
+  function levelNear(i, price, side){            // side 1 = support below/at price, -1 = resistance
+    const tol=(rngAvg20[i]||atr[i])*0.8; let best=null;
+    for(const v of pivots){
+      if(v.k+RV_LB>i || v.k<i-500) continue;
+      if(Math.abs(v.p-price)>tol) continue;
+      if(!best) best={sum:0, n:0, tol};
+      best.sum+=v.p; best.n++;
+    }
+    if(!best || best.n<2) return null;
+    return {p:best.sum/best.n, touches:best.n, tol:best.tol};
+  }
+  function revCheck(i, live){
+    if(i<RV_LB+3 || !(atr[i]>0)) return null;
+    const rng=H[i]-L[i]; if(!(rng>0)) return null;
+    const body=Math.abs(Cl[i]-O[i]), loW=Math.min(O[i],Cl[i])-L[i], upW=H[i]-Math.max(O[i],Cl[i]);
+    const rsiLo=Math.min(rsi[i],rsi[i-1],rsi[i-2]), rsiHi=Math.max(rsi[i],rsi[i-1],rsi[i-2]);
+    const vr= volAvg[i]>0 ? V[i]/volAvg[i] : 1;
+    const out=[];
+    for(const side of [1,-1]){
+      const lv=levelNear(i, side===1?L[i]:H[i], side); if(!lv) continue;
+      const came= side===1 ? Math.max(Cl[i-3],Cl[i-4]) > lv.p+lv.tol*0.5 : Math.min(Cl[i-3],Cl[i-4]) < lv.p-lv.tol*0.5;
+      if(!came) continue;                                  // must arrive at the level from the other side
+      const held= side===1 ? Cl[i]>=lv.p-lv.tol*0.3 : Cl[i]<=lv.p+lv.tol*0.3;
+      const stretched= side===1 ? rsiLo<=40 : rsiHi>=60;
+      const wick= side===1 ? loW>=0.45*rng && Cl[i]>=L[i]+0.5*rng : upW>=0.45*rng && Cl[i]<=H[i]-0.5*rng;
+      const engulf= side===1 ? Cl[i]>O[i] && Cl[i-1]<O[i-1] && Cl[i]>=O[i-1] && O[i]<=Cl[i-1]
+                             : Cl[i]<O[i] && Cl[i-1]>O[i-1] && Cl[i]<=O[i-1] && O[i]>=Cl[i-1];
+      const turned= wick || engulf || (side===1 ? Cl[i]>O[i] && body>=0.5*rng : Cl[i]<O[i] && body>=0.5*rng);
+      let score=(lv.touches>=3?2:1)+(stretched?1:0)+(vr>=1.3?1:0)+(wick||engulf?1:0);
+      // early "watch": price is at the level and stretched, but no turn yet
+      const watch= live && held && stretched && !turned;
+      if(!watch && !(held && turned && stretched)) continue;
+      const target= side===1 ? (emaS[i]>Cl[i] ? emaS[i] : Cl[i]+atr[i]*1.5) : (emaS[i]<Cl[i] ? emaS[i] : Cl[i]-atr[i]*1.5);
+      const inval= side===1 ? Math.min(L[i],lv.p-lv.tol*0.5)-atr[i]*0.15 : Math.max(H[i],lv.p+lv.tol*0.5)+atr[i]*0.15;
+      out.push({side, level:lv.p, touches:lv.touches, rsi:side===1?rsiLo:rsiHi, vr, watch,
+        strength: score>=4?"High":score>=3?"Medium":"Low", target, inval, how: wick?"long wick":engulf?"engulfing":"strong candle"});
+    }
+    return out.length ? out[0] : null;
+  }
+  const revStats={count:0, hit:0, fail:0, open:0}, lastRev={1:-99, "-1":-99};
+  for(let i=Math.max(warm,RV_LB+3);i<closedN;i++){
+    const r=revCheck(i,false); if(!r) continue;
+    if(i-lastRev[r.side]<6) continue;                     // one signal per turn, not every candle
+    lastRev[r.side]=i;
+    // outcome: did price reach the target before the invalidation level (within 30 candles)?
+    let outcome="open";
+    for(let j=i+1;j<Math.min(closedN,i+31);j++){
+      const hitT= r.side===1 ? H[j]>=r.target : L[j]<=r.target, hitX= r.side===1 ? L[j]<=r.inval : H[j]>=r.inval;
+      if(hitX){ outcome="fail"; break; } if(hitT){ outcome="hit"; break; }
+      if(j===i+30) outcome="fail";
+    }
+    revStats.count++; revStats[outcome]++;
+    events.push({i, time:T[i], kind:"REV", side:r.side, price:Cl[i], ...r, outcome});
   }
 
   // ---- Live view on the forming candle ----
@@ -709,8 +910,18 @@ function compute(C, HT, cfg){
   const sNow=signals(li, st.side, st.lastExit);
   live.whyB=sNow.whyB; live.whyS=sNow.whyS;
   if(!lastIsClosed && li>0){
-    if(st.side===0){
-      if(sNow.buy) live.pre="BUY"; else if(sNow.sell) live.pre="SELL";
+    if(st.side===0 && pend){
+      const p={...pend}, r= li>pend.i ? pbStep(li,p) : "", z=pbZone(li,p.side);
+      live.zone={side:p.side, lo:z.lo, hi:z.hi, touched:p.touched};
+      if(r==="enter"){
+        const d=p.side, e=Cl[li], lv=levAt(li), ep=x=> d*(x-e)/e*lv.lev*100, sl=pbStop(li,p);
+        const tp1=e+d*atr[li]*P.tp1, tp2=e+d*atr[li]*tp2ATR[li];
+        live.pre= d===1?"BUY":"SELL";
+        live.preData={side:d, price:e, sl, tp1, tp2, lev:lv.lev, lvl:lv.lvl, spot:cfg.market==="spot", slPct:ep(sl), tp1Pct:ep(tp1), tp2Pct:ep(tp2), pb:true};
+      }else if(p.touched && !r) live.items.push({kind:"LZONE", side:p.side, lo:z.lo, hi:z.hi});
+    }
+    else if(st.side===0){
+      if(sNow.buy && !cfg.pullbackEntry) live.pre="BUY"; else if(sNow.sell && !cfg.pullbackEntry) live.pre="SELL";
       if(live.pre){
         const d=live.pre==="BUY"?1:-1, e=Cl[li], lv=levAt(li), ep=p=> d*(p-e)/e*lv.lev*100;
         const sl=e-d*atr[li]*P.sl, tp1=e+d*atr[li]*P.tp1, tp2=e+d*atr[li]*tp2ATR[li];
@@ -730,14 +941,17 @@ function compute(C, HT, cfg){
       if(slLine[li-1]!==undefined){ slLine[li]=st.sl; if(st.be) trailLine[li]=st.trail; }
     }
   }
+  if(!lastIsClosed && li>0){ const r=revCheck(li,true); if(r && li-lastRev[r.side]>=6) live.rev=r; }
+  if(!lastIsClosed && li>0 && hype[li]!=="NORMAL" && hype[li]!==hype[li-1])
+    live.hype={state:hype[li], move:HY.move[li], vr:HY.vr[li], rsi:rsi[li], weak:HY.weak[li]};
   const lc=closedN-1;
   const entryAtLast=events.find(e=>e.i===lc && (e.kind==="BUY"||e.kind==="SELL"));
-  const sig= live.pre ? "P-"+live.pre : entryAtLast ? entryAtLast.kind : "NONE";
+  const sig= live.pre ? "P-"+live.pre : entryAtLast ? entryAtLast.kind : live.zone ? (live.zone.touched?"IN ZONE":"WAIT DIP") : "NONE";
 
   const wins=trades.filter(t=>t.pnl>0).length;
   return {
     T, ts, upper, lower, emaS, htfVal, htfValid, slLine, trailLine, tlUp, tlDn,
-    st:{...st}, trades, events, days, live, sig, lastTrade, spot:cfg.market==="spot", legacy:!!cfg.legacy, early:{count:earlyCount, saved:earlySaved},
+    revStats, st:{...st}, trades, events, days, live, sig, lastTrade, spot:cfg.market==="spot", legacy:!!cfg.legacy, early:{count:earlyCount, saved:earlySaved},
     exitInfo: cfg.earlyExit && st.side!==0 && !st.tp1Hit ? (live.exit || (lastIsClosed ? earlyCheck(li, st) : earlyCheck(Math.max(0,li-1), st))) : null,
     stats:{count:trades.length, winRate:trades.length?wins/trades.length:NaN, net:balance/cfg.capital-1, maxDD, balance},
     snap:{price:Cl[li], market:market(li), rsi:rsi[li], lev:levAt(li), hype:hype[li]}
@@ -893,6 +1107,9 @@ function drawChart(R, full){
     if(!s.tp1Hit) add(s.tp1, TV.aqua, "TP1");
     add(s.tp2, TV.navy, "TP2");
     if(s.be && Number.isFinite(s.trail)) add(s.trail, TV.purple, "TRAIL EXIT", 0);
+  }else if(R.live.zone){
+    const z=R.live.zone, add=(price,title)=>priceLines.push(candleS.createPriceLine({price,color:TV.aqua,title,lineStyle:2,lineWidth:1,axisLabelVisible:true}));
+    add(z.hi, "ENTRY ZONE"); add(z.lo, "ENTRY ZONE");
   }
 }
 
@@ -948,6 +1165,20 @@ function drawSR(){
 const labelsEl=document.getElementById("labels"), liveLayerEl=document.getElementById("liveLabels");
 let labelEls=[], ovVersion=0;
 
+function hypeLabel(e, live){
+  const L=live?"LIVE ":"", mv=Number.isFinite(e.move)?pctTxt(e.move):"N/A", vr=Number.isFinite(e.vr)?e.vr.toFixed(1)+"×":"N/A", rs=Number.isFinite(e.rsi)?Math.round(e.rsi):"N/A";
+  if(e.state==="BUILDING") return {pos:"top", b:"#FDD835", f:TV.black, text:`${L}HYPE BUILDING 🔥\nMove: ${mv}\nVol: ${vr} avg\nRSI: ${rs}`};
+  if(e.state==="HYPED")    return {pos:"top", b:TV.orange, f:TV.black, text:`${L}HYPED 🚀\nMove: ${mv}\nVol: ${vr} avg\nRSI: ${rs}\nLate to buy, watch for a fall`};
+  return {pos:"bottom", b:TV.red, f:TV.white, text:`${L}FALL RISK ⚠️\nWeakness: ${e.weak}/5\nMove: ${mv}`};
+}
+function revLabel(e, live){
+  const up=e.side===1, lvl=`${up?"support":"resistance"} ${fmt(e.level)} (${e.touches}x)`;
+  if(e.watch) return {pos:up?"bottom":"top", b:up?"#B2DFDB":"#F8BBD0", f:TV.black,
+    text:`${up?"BOUNCE":"FALL BACK"} ZONE 👀\nAt ${lvl}\nRSI ${Math.round(e.rsi)}\nWait for a ${up?"green":"red"} reversal candle`};
+  const res= live ? "" : e.outcome==="hit" ? "\nResult: reached target ✅" : e.outcome==="fail" ? "\nResult: failed ❌" : "";
+  return {pos:up?"bottom":"top", b:up?"#00897B":"#AD1457", f:TV.white,
+    text:`${live?"LIVE ":""}${up?"BOUNCE BACK ↑":"FALL BACK ↓"} (${e.strength})\nAt ${lvl}\nRSI ${Math.round(e.rsi)}, vol ${e.vr.toFixed(1)}×, ${e.how}\nTarget: ${fmt(e.target)}\nInvalid ${up?"below":"above"}: ${fmt(e.inval)}${res}`};
+}
 function buildLabels(R){
   const groups=new Map();
   const add=(i,pos,order,text,b,f)=>{
@@ -959,9 +1190,11 @@ function buildLabels(R){
   for(const e of R.events){
     const long=e.side===1, tpPos=long?"top":"bottom", stPos=long?"bottom":"top";
     switch(e.kind){
+      case "SETUP": add(e.i, long?"bottom":"top", 0.5, `${long?"BUY":e.spot?"SELL":"SHORT"} SETUP ⏳\nDon't chase. Wait for ${long?"dip":"bounce"} to\n${fmt(e.zlo)} – ${fmt(e.zhi)}\nValid ${e.bars} candles${e.auto?` (auto: ${e.why})`:""}`, "#FDD835", TV.black); break;
+      case "CANCEL": add(e.i, long?"bottom":"top", 0.6, `SETUP CANCELLED\n${e.why}`, "#787B86", TV.white); break;
       case "BUY": case "SELL": {
         entryBars.add(e.i);
-        let t=`${e.kind}\nEntry: ${fmt(e.price)}\nSL: ${fmt(e.sl)} (${pctTxt(e.slPct)})\nTP1: ${fmt(e.tp1)} (${pctTxt(e.tp1Pct)})\nTP2: ${fmt(e.tp2)} (${pctTxt(e.tp2Pct)})`+(e.spot?"":`\nLEV: ${e.lev}x (${e.lvl})`);
+        let t=`${e.kind==="SELL"&&!e.spot?"SELL / SHORT":e.kind}${e.pb?" (pullback)":""}\nEntry: ${fmt(e.price)}\nSL: ${fmt(e.sl)} (${pctTxt(e.slPct)})\nTP1: ${fmt(e.tp1)} (${pctTxt(e.tp1Pct)})\nTP2: ${fmt(e.tp2)} (${pctTxt(e.tp2Pct)})`+(e.spot?"":`\nLEV: ${e.lev}x (${e.lvl})`);
         if(e.brk && cfg.showBreaks) t+=`\n\nBREAK P: ${fmt(e.price)}`;
         if(long) add(e.i,"bottom",0,t, e.brk&&cfg.showBreaks?TV.teal:TV.lime, TV.black);
         else add(e.i,"top",0,t, TV.red, TV.black);
@@ -975,6 +1208,8 @@ function buildLabels(R){
       case "TRAIL": add(e.i, stPos, 8, `TRAIL EXIT✅\n${fmt(e.price)}\nTotal: ${pctTxt(e.total)}`, TV.silver, TV.black); break;
       case "SL": add(e.i, stPos, 9, `STOP LOSS ❌\n${fmt(e.price)}\nTotal: ${pctTxt(e.total)}`, TV.maroon, TV.white); break;
       case "BE": add(e.i, stPos, 9, `BE ❌\n${fmt(e.price)}\nTotal: ${pctTxt(e.total)}`, TV.maroon, TV.white); break;
+      case "REV": if(cfg.showRev){ const h=revLabel(e,false); add(e.i, h.pos, 9.5, h.text, h.b, h.f); } break;
+      case "HYPE": if(cfg.showHype){ const h=hypeLabel(e, false); add(e.i, h.pos, 10, h.text, h.b, h.f); } break;
       case "FLIP": add(e.i, stPos, 9, `TREND FLIP EXIT\n${fmt(e.price)}\nTotal: ${pctTxt(e.total)}`, TV.maroon, TV.white); break;
       case "EARLY": add(e.i, stPos, 9, `EARLY EXIT ⚠️\n${fmt(e.price)}\nTotal: ${pctTxt(e.total)}\nSL would be: ${pctTxt(e.slTotal)}`, TV.orange, TV.black); break;
       case "WARN": add(e.i, stPos, 8.5, `⚠️ WEAKENING\n${e.reasons.length}/5 reversal signs`, "#FDD835", TV.black); break;
@@ -987,6 +1222,8 @@ function buildLabels(R){
     }
   }
   const li=candles.length-1, long=R.st.side===1;
+  if(R.live.rev && cfg.showRev){ const h=revLabel(R.live.rev,true); add(li, h.pos, 9.6, h.text, h.b, h.f); }
+  if(R.live.hype && cfg.showHype){ const h=hypeLabel(R.live.hype, true); add(li, h.pos, 10, h.text, h.b, h.f); }
   if(R.live.preData && cfg.showLivePre){
     const e=R.live.preData, buy=e.side===1;
     add(li, buy?"bottom":"top", 3,
@@ -997,6 +1234,7 @@ function buildLabels(R){
     if(it.kind==="LTP1") add(li, long?"top":"bottom", 7, `LIVE TP1\n${fmt(it.price)}\n${pctTxt(it.pct)}`, TV.aqua, TV.black);
     if(it.kind==="LTP2") add(li, long?"top":"bottom", 7.5, `LIVE TP2\n${fmt(it.price)}\n${pctTxt(it.pct)}`, TV.blue, TV.white);
     if(it.kind==="LTR") add(li, long?"bottom":"top", 8, `LIVE TRAIL EXIT\n${fmt(it.price)}`, TV.white, TV.black);
+    if(it.kind==="LZONE") add(li, it.side===1?"bottom":"top", 8.7, `IN ENTRY ZONE 🎯\n${fmt(it.lo)} – ${fmt(it.hi)}\nWait for a ${it.side===1?"green":"red"} close`, TV.aqua, TV.black);
     if(it.kind==="LEX") add(li, long?"bottom":"top", 8.8, `LIVE EXIT ⚠️\nPrice: ${fmt(it.price)}\n${it.reasons.length}/5 signs`, TV.orange, TV.black);
     if(it.kind==="LSL") add(li, long?"bottom":"top", 9, `${it.be?"LIVE BE":"LIVE SL"}\nPrice: ${fmt(it.price)}`, TV.red, TV.white);
   }
@@ -1255,7 +1493,7 @@ const a88=hex=> hex+"E0";
 function drawInfo(R){
   const s=R.st, lt=R.lastTrade, price=R.snap.price, live=R.live.items.map(x=>x.kind);
   const mk=R.snap.market, mktCol= mk==="BULLISH"?TV.lime : mk==="BEARISH"?TV.red : TV.orange;
-  const sigCol= R.sig==="P-BUY"?TV.yellow : R.sig==="P-SELL"?TV.orange : R.sig==="BUY"?TV.lime : R.sig==="SELL"?TV.red : "#B2B5BE";
+  const sigCol= R.sig==="IN ZONE"?TV.aqua : R.sig==="WAIT DIP"?"#FDD835" : R.sig==="P-BUY"?TV.yellow : R.sig==="P-SELL"?TV.orange : R.sig==="BUY"?TV.lime : R.sig==="SELL"?TV.red : "#B2B5BE";
   const dist=(target,profit)=> Math.max(profit ? s.side*(target-price) : s.side*(price-target), 0);
   let bias, tp1, tp2, slx, slBg=TV.purple, stop;
   if(s.side!==0){
@@ -1353,6 +1591,7 @@ function drawStats(R){
   ].map(([k,v])=>`<div><small>${k}</small><strong class="num">${v}</strong></div>`).join("");
   document.getElementById("statsNote").textContent= `Results for the same days as the daily table (${lbl}), starting from $${cfg.capital}. `+
     (S.early ? `Early exits: ${S.early}. ` : "")+
+    (cfg.showRev && R.revStats && R.revStats.hit+R.revStats.fail ? `Bounce / fall back signals on loaded history: ${R.revStats.hit+R.revStats.fail} finished, ${R.revStats.hit} reached target (${Math.round(R.revStats.hit/(R.revStats.hit+R.revStats.fail)*100)}%). ` : "")+
     (R.legacy ? "Original rules: no fees, and candles touching both a target and the stop count as a win, so these numbers are best-case." : "v2 rules: fees included and ambiguous candles count as a loss.");
 }
 function drawTrades(R){
@@ -1411,7 +1650,7 @@ function drawTitle(){
   const c=candles[candles.length-1]; if(!c) return;
   document.getElementById("title").textContent=`${pairName()} · ${cfg.tf} · Binance ${cfg.market==="perp"?"Perpetual":"Spot"}`;
   if(hoverBar) paintHover(); else document.getElementById("ohlc").innerHTML=ohlcHTML(c);
-  document.title=`${fmt(c.c)} ${pairName()} | Trading Signals`;
+  document.title=`${fmt(c.c)} ${pairName()} | MAX Signals`;
   const lp=document.getElementById("livePrice"), txt=fmt(c.c);
   if(lp.textContent!==txt){
     const prev=parseFloat(lp.dataset.v);
@@ -1465,13 +1704,20 @@ function updateClearAll(){
 }
 function eventMessage(e, head=`${pairName()} ${cfg.tf}`, fmt=window.fmtMain){
   switch(e.kind){
-    case "BUY": case "SELL": return `${e.kind} ${head}\nEntry ${fmt(e.price)}  SL ${fmt(e.sl)}\nTP1 ${fmt(e.tp1)}  TP2 ${fmt(e.tp2)}`+(e.spot?"":`  LEV ${e.lev}x`);
+    case "SETUP": return `${e.side===1?"BUY":"SELL"} SETUP ${head}\nDon't chase. Wait for price to ${e.side===1?"dip":"bounce"} to ${fmt(e.zlo)} – ${fmt(e.zhi)} (valid ${e.bars} candles${e.auto?`, auto: ${e.why}`:""}).`;
+    case "CANCEL": return `Setup cancelled ${head}: ${e.why}.`;
+    case "BUY": case "SELL": return `${e.kind}${e.pb?" (pullback entry)":""} ${head}\nEntry ${fmt(e.price)}  SL ${fmt(e.sl)}\nTP1 ${fmt(e.tp1)}  TP2 ${fmt(e.tp2)}`+(e.spot?"":`  LEV ${e.lev}x`);
     case "TP1": return `TP1 hit ${head} at ${fmt(e.price)}. Stop moved to break-even.`;
     case "TP2": return `TP2 hit ${head} at ${fmt(e.price)}. Total ${pctTxt(e.total)}`;
     case "SL": return `Stop loss ${head} at ${fmt(e.price)}. Total ${pctTxt(e.total)}`;
     case "BE": return `Break-even exit ${head} at ${fmt(e.price)}. Total ${pctTxt(e.total)}`;
     case "TRAIL": return `Trailing exit ${head} at ${fmt(e.price)}. Total ${pctTxt(e.total)}`;
     case "FLIP": return `Trend flip exit ${head} at ${fmt(e.price)}. Total ${pctTxt(e.total)}`;
+    case "REV": return `${e.side===1?"BOUNCE BACK ↑":"FALL BACK ↓"} (${e.strength}) ${head} at ${fmt(e.price)}\n${e.side===1?"Support":"Resistance"} ${fmt(e.level)} held (${e.touches}x), RSI ${Math.round(e.rsi)}.\nTarget ${fmt(e.target)}, invalid ${e.side===1?"below":"above"} ${fmt(e.inval)}.`;
+    case "HYPE": { const v=Number.isFinite(e.vr)?e.vr.toFixed(1):"?";
+      return e.state==="BUILDING" ? `HYPE BUILDING ${head} at ${fmt(e.price)}\nUp ${pctTxt(e.move)} with ${v}× volume, RSI ${Math.round(e.rsi)}.`
+      : e.state==="HYPED" ? `HYPED ${head} at ${fmt(e.price)}\nUp ${pctTxt(e.move)}, volume ${v}×, RSI ${Math.round(e.rsi)}. Late to buy, watch for a fall.`
+      : `FALL RISK ${head} at ${fmt(e.price)}\nThe pump is weakening (${e.weak}/5 signs).`; }
     case "EARLY": return `EARLY EXIT ${head} at ${fmt(e.price)}\nMarket turned against the trade (${e.reasons.join(", ")}).\nTotal ${pctTxt(e.total)}, stop would have been ${pctTxt(e.slTotal)}`;
     case "WARN": return `Trade weakening ${head} at ${fmt(e.price)}\n${e.reasons.join(", ")}. Watch for an early exit.`;
     case "RE": return `${e.side===1?"RE+":"RE-"} re-entry signal ${head} at ${fmt(e.price)}`;
@@ -1483,9 +1729,11 @@ function notify(R){
   if(notifiedUpTo!==null && lastT>notifiedUpTo){
     for(const e of R.events.filter(e=>e.time===lastT)){
       const msg=eventMessage(e); if(!msg) continue;
-      const col= e.kind==="BUY"?TV.lime : (e.kind==="SELL"||e.kind==="SL"||e.kind==="FLIP")?TV.red : (e.kind==="EARLY"||e.kind==="WARN")?TV.orange : TV.blue;
+      const col= e.kind==="BUY"?TV.lime : (e.kind==="SELL"||e.kind==="SL"||e.kind==="FLIP")?TV.red : (e.kind==="EARLY"||e.kind==="WARN"||e.kind==="HYPE")?TV.orange : TV.blue;
+      if(e.kind==="HYPE" && !cfg.showHype) continue;
+      if(e.kind==="REV" && !cfg.showRev) continue;
       toast(msg,col);
-      if(alertsOn){ beep(); if("Notification" in window && Notification.permission==="granted"){ try{ new Notification("Trading Signals",{body:msg}); }catch(_){} } }
+      if(alertsOn){ beep(); if("Notification" in window && Notification.permission==="granted"){ try{ new Notification("MAX Signals",{body:msg}); }catch(_){} } }
     }
   }
   notifiedUpTo=lastT;
@@ -1505,6 +1753,8 @@ function render(full){
   if(full){ drawStats(R); drawTrades(R); notify(R); }
   liveExitAlert(R);
   livePreAlert(R);
+  liveZoneAlert(R);
+  liveRevAlert(R);
 }
 // Heads-up while the candle is still forming; the exit itself confirms at candle close.
 let liveExitBar=null;
@@ -1515,7 +1765,26 @@ function livePreAlert(R){
   livePreBar=key;
   const msg=`PRE-${e.side===1?"BUY":"SELL"} ${pairName()} ${cfg.tf} (forming)\nEntry ${fmt(e.price)}  SL ${fmt(e.sl)}\nTP1 ${fmt(e.tp1)}  TP2 ${fmt(e.tp2)}`+(e.spot?"":`  LEV ${e.lev}x`)+`\nConfirms only if the candle closes like this.`;
   toast(msg, e.side===1?TV.yellow:TV.orange);
-  if(alertsOn){ beep(); if("Notification" in window && Notification.permission==="granted"){ try{ new Notification("Trading Signals",{body:msg}); }catch(_){} } }
+  if(alertsOn){ beep(); if("Notification" in window && Notification.permission==="granted"){ try{ new Notification("MAX Signals",{body:msg}); }catch(_){} } }
+}
+let liveRevBar=null;
+function liveRevAlert(R){
+  const r=R.live.rev; if(!r || !cfg.showRev) return;
+  const t=candles[candles.length-1].t, key=t+"|"+r.side+"|"+r.watch; if(liveRevBar===key) return; liveRevBar=key;
+  const up=r.side===1;
+  const msg= r.watch
+    ? `${up?"BOUNCE":"FALL BACK"} ZONE ${pairName()} ${cfg.tf}\nPrice is at ${up?"support":"resistance"} ${fmt(r.level)} (${r.touches}x) with RSI ${Math.round(r.rsi)}. Watch for a ${up?"green":"red"} reversal candle.`
+    : `LIVE ${up?"BOUNCE BACK ↑":"FALL BACK ↓"} ${pairName()} ${cfg.tf} (forming)\nTarget ${fmt(r.target)}, invalid ${up?"below":"above"} ${fmt(r.inval)}. Confirms at candle close.`;
+  toast(msg, up?"#00897B":"#AD1457");
+  if(alertsOn){ beep(); if("Notification" in window && Notification.permission==="granted"){ try{ new Notification("MAX Signals",{body:msg}); }catch(_){} } }
+}
+let liveZoneBar=null;
+function liveZoneAlert(R){
+  const z=R.live.items.find(x=>x.kind==="LZONE"); if(!z) return;
+  const t=candles[candles.length-1].t; if(liveZoneBar===t) return; liveZoneBar=t;
+  const msg=`${pairName()} ${cfg.tf}: price is in the ENTRY ZONE ${fmt(z.lo)} – ${fmt(z.hi)}.\nEntry confirms on a ${z.side===1?"green":"red"} candle close.`;
+  toast(msg, TV.aqua);
+  if(alertsOn){ beep(); if("Notification" in window && Notification.permission==="granted"){ try{ new Notification("MAX Signals",{body:msg}); }catch(_){} } }
 }
 function liveExitAlert(R){
   const lx=R.live.items.find(x=>x.kind==="LEX"); if(!lx) return;
@@ -1523,7 +1792,7 @@ function liveExitAlert(R){
   liveExitBar=t;
   const msg=`LIVE EXIT WARNING ${pairName()} ${cfg.tf} at ${fmt(lx.price)}\n${lx.reasons.join(", ")}.\nConfirms if the candle closes like this.`;
   toast(msg, TV.orange);
-  if(alertsOn){ beep(); if("Notification" in window && Notification.permission==="granted"){ try{ new Notification("Trading Signals",{body:msg}); }catch(_){} } }
+  if(alertsOn){ beep(); if("Notification" in window && Notification.permission==="granted"){ try{ new Notification("MAX Signals",{body:msg}); }catch(_){} } }
 }
 async function refreshHTF(){
   if(!cfg.legacy && cfg.useHTF && TF_SEC[cfg.htf]>TF_SEC[cfg.tf]){
@@ -1715,6 +1984,7 @@ function fastTargets(){
   const bases=new Set();
   document.querySelectorAll("#ciSimilar tr[data-sym]").forEach(tr=>bases.add(tr.dataset.sym));
   [...document.querySelectorAll("#coinTable tbody tr[data-sym]")].slice(0,60).forEach(tr=>bases.add(tr.dataset.sym));
+  [...document.querySelectorAll("#scanTable tbody tr[data-sym]")].slice(0,60).forEach(tr=>bases.add(tr.dataset.sym));
   const out={perp:new Set(), spot:new Set()};
   for(const b of bases){ const l=coinLive.get(b); if(!l) continue; if(l.spot) out.spot.add(l.spot.toLowerCase()); else if(l.perp) out.perp.add(l.perp.toLowerCase()); }
   return out;
@@ -1744,7 +2014,7 @@ function syncFastTrades(){
 setInterval(syncFastTrades, 1500);
 function livePricesNeeded(){
   if(document.hidden) return false;
-  return !document.getElementById("panel-coins").hidden || !!document.querySelector("#ciSimilar tr[data-sym]");
+  return !document.getElementById("panel-coins").hidden || !document.getElementById("panel-scanner").hidden || !!document.querySelector("#ciSimilar tr[data-sym]");
 }
 function syncAllTickers(){
   const need=livePricesNeeded();
@@ -2019,7 +2289,7 @@ function watchAlerts(w, R, bars){
     const msg=eventMessage(e, `${wName(w)} ${cfg.tf}`, f); if(!msg) continue;
     const col= e.kind==="BUY"?TV.lime : (e.kind==="SELL"||e.kind==="SL"||e.kind==="FLIP")?TV.red : (e.kind==="EARLY"||e.kind==="WARN")?TV.orange : TV.blue;
     toast(msg+"\nClick to open.", col, ()=>openPair(w));
-    if(alertsOn){ beep(); if("Notification" in window && Notification.permission==="granted"){ try{ new Notification("Trading Signals",{body:msg}); }catch(_){} } }
+    if(alertsOn){ beep(); if("Notification" in window && Notification.permission==="granted"){ try{ new Notification("MAX Signals",{body:msg}); }catch(_){} } }
   }
 }
 
@@ -2095,7 +2365,9 @@ function connectWatchStreams(){
     sock.onerror=()=>{ try{ sock.close(); }catch(_){} };
   }
 }
+function openPairOutlook(){ setTimeout(loadCoinPositioning, 1500); }
 function openPair(w){
+  openPairOutlook();
   cfg.symbol=w.symbol; cfg.market=w.market; saveCfg();
   symEl.value=pairName(); mktEl.value=cfg.market;
   renderWatch(); start();
@@ -2176,6 +2448,7 @@ document.getElementById("themeBtn").addEventListener("click", ()=>{ cfg.dark=!cf
 document.querySelectorAll(".tablist button").forEach(b=>b.addEventListener("click",()=>{
   const open= b.getAttribute("aria-selected")!=="true";      // clicking the open tab minimises it
   if(open && b.dataset.tab==="coins") openCoinsTab();
+  if(open && b.dataset.tab==="scanner") openScanner();
   document.querySelectorAll(".tablist button").forEach(x=>{ const on= open && x===b; x.setAttribute("aria-selected", on?"true":"false"); x.setAttribute("aria-expanded", on?"true":"false"); });
   document.querySelectorAll(".panel").forEach(p=>p.hidden= !open || p.id!=="panel-"+b.dataset.tab);
 }));
@@ -2271,7 +2544,7 @@ function renderCoins(){
 }
 // live prices in place, without rebuilding the table
 function updateCoinPrices(){
-  document.querySelectorAll("#coinTable tr[data-sym]").forEach(tr=>{
+  document.querySelectorAll("#coinTable tr[data-sym], #scanTable tr[data-sym]").forEach(tr=>{
     const l=coinLive.get(tr.dataset.sym); if(!l || !l.price) return;
     const cell=tr.querySelector(".cPrice"), txt=`$${priceTxt(l.price)}`;
     if(cell && cell.textContent!==txt) flashPrice(cell, txt);
@@ -2292,6 +2565,369 @@ document.getElementById("coinTable").addEventListener("click", e=>{
   if(st){ const [symbol,market]=st.dataset.star.split("|"); addPair({symbol,market}); renderCoins(); }
 });
 ["coinSearch","coinMaxSup","coinBinance"].forEach(id=>document.getElementById(id).addEventListener(id==="coinSearch"?"input":"change", renderCoins));
+
+// ============================================================================
+// BULLISH / BEARISH SCANNER
+// ============================================================================
+const SC_LABEL={TURN_BULL:["Turning bullish ⚡","#00E676","#131722"], BULL:["Bullish","#089981","#fff"], WEAK_BULL:["Weak bullish","#08998133","var(--pos)"],
+  SIDE:["Sideways","#787B8633","var(--muted)"], WEAK_BEAR:["Weak bearish","#F2364533","var(--neg)"], BEAR:["Bearish","#F23645","#fff"], TURN_BEAR:["Turning bearish ⚡","#FF6D00","#fff"]};
+let scanRows=[], scanAt=0, scanBusyNow=false;
+const scanPrev=new Map(), scanBaseline=new Set();
+function scanCfg(){ if(!cfg.scan || typeof cfg.scan!=="object") cfg.scan={...DEFAULTS.scan}; return cfg.scan; }
+
+// Trend analysis for one coin, from its last ~300 candles.
+function analyzeTrend(bars, tf){
+  const n=bars.length; if(n<120) return null;
+  const O=bars.map(b=>b.o), H=bars.map(b=>b.h), L=bars.map(b=>b.l), C=bars.map(b=>b.c), V=bars.map(b=>b.v), T=bars.map(b=>b.t);
+  const P=presets(tf, cfg.autoTune);
+  const emaS=ema(ema(bars.map(b=>(b.h+b.l+b.c)/3), P.emaLen), 2), TR=trueRange(H,L,C), atr=rma(TR,P.atrLen);
+  const upper=emaS.map((e,i)=>e+atr[i]*P.band), lower=emaS.map((e,i)=>e-atr[i]*P.band);
+  const ts=new Array(n).fill(0);
+  for(let i=1;i<n;i++){
+    const up=C[i]>upper[i] && emaS[i]>emaS[i-1], dn=C[i]<lower[i] && emaS[i]<emaS[i-1];
+    ts[i]= up?1 : dn?-1 : ts[i-1];
+  }
+  const rsi=rsiCalc(C,14), {pdi,mdi,adx}=dmi(H,L,TR,14,14), vAvg=sma(V,20);
+  const HY=hypeSeries(O,H,L,C,V,upper,atr,rsi,P);
+  // higher-timeframe trend from the same candles (1h for intraday, 4h for 1h/4h)
+  const hSec= TF_SEC[tf]<3600 ? 3600 : 14400, hc=[];
+  for(let i=0;i<n;i++){ const k=Math.floor(T[i]/hSec); if(hc.length && hc[hc.length-1].k===k) hc[hc.length-1].c=C[i]; else hc.push({k,c:C[i]}); }
+  const he=ema(hc.map(x=>x.c), Math.min(20, Math.max(5, hc.length-3)));
+  const hl=he.length-1, htf= hl>=3 && Number.isFinite(he[hl]) && Number.isFinite(he[hl-3])
+    ? (hc[hl].c>he[hl] && he[hl]>he[hl-3] ? 1 : hc[hl].c<he[hl] && he[hl]<he[hl-3] ? -1 : 0) : 0;
+  const score=i=>{
+    if(i<3) return 0;
+    let s=ts[i]*30 + (C[i]>emaS[i]?10:-10);
+    if(Number.isFinite(adx[i])) s+=Math.sign(pdi[i]-mdi[i])*Math.min(adx[i],40)/40*15;
+    if(Number.isFinite(rsi[i])) s+=Math.max(-20, Math.min(20, (rsi[i]-50)/50*40));
+    s+=htf*15;
+    const vr= vAvg[i]>0 ? (V[i]+V[i-1]+V[i-2])/3/vAvg[i] : 1;
+    if(vr>1.3) s+=Math.sign(C[i]-C[i-3])*10;
+    return Math.max(-100, Math.min(100, s));
+  };
+  const lc= bars[n-1].closed ? n-1 : n-2;
+  const sc=score(lc), prev=score(lc-3);
+  let since=0; while(lc-since-1>=0 && ts[lc-since-1]===ts[lc]) since++;
+  let state;
+  if(ts[lc]===1 && since<=1 && sc>0) state="TURN_BULL";
+  else if(ts[lc]===-1 && since<=1 && sc<0) state="TURN_BEAR";
+  else if(prev<=10 && sc>=30) state="TURN_BULL";
+  else if(prev>=-10 && sc<=-30) state="TURN_BEAR";
+  else state= sc>=35?"BULL" : sc>=10?"WEAK_BULL" : sc<=-35?"BEAR" : sc<=-10?"WEAK_BEAR" : "SIDE";
+  const vr= vAvg[lc]>0 ? V[lc]/vAvg[lc] : NaN;
+  // hype: current state (live candle counts, so building hype shows as early as possible)
+  const hi= HY.state[n-1]!=="NORMAL" ? n-1 : lc;
+  let hSince=0; while(hi-hSince-1>=0 && HY.state[hi-hSince-1]===HY.state[hi]) hSince++;
+  return {state, score:Math.round(sc), since:since+1, rsi:rsi[lc], adx:adx[lc], diUp:pdi[lc]>mdi[lc], htf, vr,
+          hype:HY.state[hi], hypeMove:HY.move[hi], hypeVr:HY.vr[hi], hypeSince:hSince+1, hypeLive:hi===n-1 && !bars[n-1].closed};
+}
+async function pool(items, n, fn){
+  let i=0;
+  await Promise.all(Array.from({length:n}, async()=>{ while(i<items.length){ const k=i++; await fn(items[k]); } }));
+}
+const STABLE=/^(USDC|FDUSD|TUSD|DAI|BUSD|USDP|EUR|AEUR|USDE|PYUSD|XUSD|USD1)$/;
+function baseOf(sym){
+  let base=sym.replace(/USDT$/,""), div=1;
+  const m=base.match(/^(1000000|1000|1M)([A-Z0-9]+)$/); if(m){ div= m[1]==="1000" ? 1000 : 1e6; base=m[2]; }
+  return {base, div};
+}
+async function runScanner(){
+  if(scanBusyNow) return; scanBusyNow=true;
+  const sc=scanCfg(), mkt=sc.market, tf=sc.tf, st=document.getElementById("scStatus");
+  st.textContent="Finding coins…";
+  let list=[];
+  try{
+    const url= mkt==="perp" ? "https://fapi.binance.com/fapi/v1/ticker/24hr" : "https://data-api.binance.vision/api/v3/ticker/24hr";
+    const all=(await (await fetch(url)).json()).filter(x=>/USDT$/.test(x.symbol) && +x.quoteVolume>0);
+    const byVol=all.filter(x=>{ const b=baseOf(x.symbol).base; return !STABLE.test(b) && !/(UP|DOWN|BULL|BEAR)$/.test(b); }).sort((a,b)=>b.quoteVolume-a.quoteVolume);
+    const watch=new Set(cfg.watchlist.filter(w=>w.market===mkt).map(w=>w.symbol));
+    list= sc.count==="watch" ? all.filter(x=>watch.has(x.symbol)) : byVol.slice(0, +sc.count||50);
+  }catch(e){ st.textContent="Couldn't reach Binance for the coin list. Check your connection or switch market."; scanBusyNow=false; return; }
+  const out=[]; let done=0;
+  await pool(list, 6, async t=>{
+    try{
+      const raw=await fetchPage(mkt, t.symbol, tf, 300), now=Date.now();
+      const bars=raw.map(k=>({t:Math.floor(k[0]/1000), o:+k[1], h:+k[2], l:+k[3], c:+k[4], v:+k[5], closed:k[6]<now}));
+      const a=analyzeTrend(bars, tf);
+      if(a){ const {base,div}=baseOf(t.symbol); out.push({sym:t.symbol, base, mkt, price:+t.lastPrice/div, chg:+t.priceChangePercent, ...a}); }
+    }catch(e){}
+    done++; st.textContent=`Scanning ${done} of ${list.length}…`;
+  });
+  // alerts: only for changes since the previous scan of the same market and timeframe
+  const scope=mkt+"|"+tf, tfName=tf, alerts=[], hypeAlerts=[];
+  for(const r of out){
+    const key=scope+"|"+r.sym, prev=scanPrev.get(key);
+    const side=s=> /BULL/.test(s) ? 1 : /BEAR/.test(s) ? -1 : 0;
+    if(scanBaseline.has(scope) && prev && prev!==r.state &&
+       ((r.state==="TURN_BULL"||r.state==="TURN_BEAR") || (side(prev)!==side(r.state) && (r.state==="BULL"||r.state==="BEAR")))) alerts.push(r);
+    scanPrev.set(key, r.state);
+    const hk=key+"|hype", ph=scanPrev.get(hk);
+    if(scanBaseline.has(scope) && r.hype!=="NORMAL" && r.hype!==ph) hypeAlerts.push(r);
+    scanPrev.set(hk, r.hype);
+  }
+  scanBaseline.add(scope);
+  if(sc.alerts && alerts.length){
+    for(const r of alerts.slice(0,6)){
+      const bull=/BULL/.test(r.state), name=`${r.base}${r.mkt==="perp"?".P":""}`;
+      const msg=`${name} ${tfName}: ${SC_LABEL[r.state][0]}\nStrength ${r.score>0?"+":""}${r.score}, RSI ${Math.round(r.rsi)}, ADX ${Math.round(r.adx)}${r.htf?`, higher TF ${r.htf>0?"up":"down"}`:""}\nClick to open the chart.`;
+      toast(msg, bull?TV.lime:TV.red, ()=>openPair({symbol:r.sym, market:r.mkt}));
+      if(alertsOn){ beep(); if("Notification" in window && Notification.permission==="granted"){ try{ new Notification("MAX Signals scanner",{body:msg}); }catch(_){} } }
+    }
+  }
+  if(sc.alerts && cfg.showHype && hypeAlerts.length){
+    const T2={BUILDING:"Hype building 🔥", HYPED:"Hyped 🚀", FALL:"Fall risk after hype ⚠️"};
+    for(const r of hypeAlerts.slice(0,6)){
+      const name=`${r.base}${r.mkt==="perp"?".P":""}`;
+      const msg=`${name} ${tfName}: ${T2[r.hype]}\nUp ${pctTxt(r.hypeMove)} with ${Number.isFinite(r.hypeVr)?r.hypeVr.toFixed(1):"?"}× volume, RSI ${Math.round(r.rsi)}.\nClick to open the chart.`;
+      toast(msg, r.hype==="FALL"?TV.red:TV.orange, ()=>openPair({symbol:r.sym, market:r.mkt}));
+      if(alertsOn){ beep(); if("Notification" in window && Notification.permission==="granted"){ try{ new Notification("MAX Signals scanner",{body:msg}); }catch(_){} } }
+    }
+  }
+  scanRows=out; scanAt=Date.now(); scanBusyNow=false;
+  renderScanner();
+}
+function renderScanner(){
+  const sc=scanCfg(), tbl=document.getElementById("scanTable");
+  let rows=scanRows.slice();
+  if(sc.filter==="turn") rows=rows.filter(r=>r.state.startsWith("TURN"));
+  else if(sc.filter==="bull") rows=rows.filter(r=>/BULL/.test(r.state));
+  else if(sc.filter==="bear") rows=rows.filter(r=>/BEAR/.test(r.state));
+  else if(sc.filter==="hype") rows=rows.filter(r=>r.hype==="BUILDING"||r.hype==="HYPED");
+  else if(sc.filter==="fall") rows=rows.filter(r=>r.hype==="FALL");
+  if(sc.sort==="bull") rows.sort((a,b)=>b.score-a.score);
+  else if(sc.sort==="bear") rows.sort((a,b)=>a.score-b.score);
+  else rows.sort((a,b)=>(b.state.startsWith("TURN")-a.state.startsWith("TURN")) || (a.since-b.since) || (Math.abs(b.score)-Math.abs(a.score)));
+  const counts={bull:scanRows.filter(r=>/BULL/.test(r.state)).length, bear:scanRows.filter(r=>/BEAR/.test(r.state)).length, turn:scanRows.filter(r=>r.state.startsWith("TURN")).length, hype:scanRows.filter(r=>r.hype==="BUILDING"||r.hype==="HYPED").length};
+  document.getElementById("scStatus").textContent= scanRows.length
+    ? `${scanRows.length} coins: ${counts.bull} bullish, ${counts.bear} bearish, ${counts.turn} turning, ${counts.hype} with hype. Updated ${new Date(scanAt).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}` : "";
+  const tfSec=TF_SEC[sc.tf]||900;
+  const sinceTxt=b=>{ const m=b*tfSec/60; return `${b} candle${b>1?"s":""} (${m<60?Math.round(m)+"m":m<1440?(m/60).toFixed(m<600?1:0)+"h":(m/1440).toFixed(1)+"d"})`; };
+  const HYP={BUILDING:["Hype building 🔥","#FDD835","#131722"], HYPED:["Hyped 🚀","#FF9800","#131722"], FALL:["Fall risk ⚠️","#F23645","#fff"]};
+  const head=`<thead><tr><th>Coin</th><th>Live price</th><th>Signal</th><th>Hype</th><th>Strength</th><th>Trend since</th><th>RSI</th><th>ADX</th><th>Higher TF</th><th>Volume</th><th>24h</th><th></th></tr></thead>`;
+  const body=rows.map(r=>{
+    const [lbl,bg,fg]=SC_LABEL[r.state], w=Math.abs(r.score)/2;
+    const bar=`<span style="${r.score>=0?`left:50%;background:#089981`:`right:50%;background:#F23645`};width:${w}%"></span>`;
+    const saved=cfg.watchlist.some(x=>x.symbol===r.sym && x.market===r.mkt);
+    return `<tr data-sym="${r.base}">
+      <td class="cNameTd"><b>${r.base}</b><small style="color:var(--muted)">${r.mkt==="perp"?".P":""}</small></td>
+      <td class="num cPrice">$${priceTxt(r.price)}</td>
+      <td><span class="scPill" style="background:${bg};color:${fg}">${lbl}</span></td>
+      <td>${HYP[r.hype]?`<span class="scPill" style="background:${HYP[r.hype][1]};color:${HYP[r.hype][2]}" title="Up ${pctTxt(r.hypeMove)} with ${Number.isFinite(r.hypeVr)?r.hypeVr.toFixed(1):"?"}× volume">${HYP[r.hype][0]}${r.hypeLive?" (live)":""}</span>`:`<small style="color:var(--muted)">None</small>`}</td>
+      <td class="num"><span class="scBar">${bar}</span>${r.score>0?"+":""}${r.score}</td>
+      <td class="num">${sinceTxt(r.since)}</td>
+      <td class="num ${r.rsi>=55?"pos":r.rsi<=45?"neg":""}">${Number.isFinite(r.rsi)?Math.round(r.rsi):"N/A"}</td>
+      <td class="num">${Number.isFinite(r.adx)?`${Math.round(r.adx)} <small class="${r.diUp?"pos":"neg"}">${r.diUp?"▲":"▼"}</small>`:"N/A"}</td>
+      <td class="num ${r.htf>0?"pos":r.htf<0?"neg":""}">${r.htf>0?"Up ▲":r.htf<0?"Down ▼":"Flat"}</td>
+      <td class="num ${r.vr>=1.5?"pos":""}">${Number.isFinite(r.vr)?r.vr.toFixed(1)+"×":"N/A"}</td>
+      <td class="num ${r.chg>=0?"pos":"neg"}">${pctTxt(r.chg)}</td>
+      <td><button type="button" class="cBtn" data-open="${r.sym}|${r.mkt}">Chart</button><button type="button" class="cBtn ${saved?"on":""}" data-star="${r.sym}|${r.mkt}" aria-label="${saved?"In watchlist":"Save to watchlist"}">${saved?"★":"☆"}</button></td>
+    </tr>`;
+  }).join("");
+  tbl.innerHTML=head+"<tbody>"+(body || `<tr><td colspan="12">${scanRows.length?"No coins match this filter right now.":"Press Scan now to check the market."}</td></tr>`)+"</tbody>";
+}
+function openScanner(){ if(!scanRows.length || Date.now()-scanAt>60000) runScanner(); else renderScanner(); }
+(function wireScanner(){
+  const sc=scanCfg(), ids={scMarket:"market", scTf:"tf", scCount:"count", scFilter:"filter", scSort:"sort"};
+  for(const [id,k] of Object.entries(ids)){
+    const el=document.getElementById(id); el.value=sc[k];
+    el.addEventListener("change", ()=>{ sc[k]=el.value; saveCfg(); if(k==="filter"||k==="sort") renderScanner(); else runScanner(); });
+  }
+  const al=document.getElementById("scAlert"); al.checked=!!sc.alerts;
+  al.addEventListener("change", ()=>{ sc.alerts=al.checked; saveCfg(); if(al.checked && !scanRows.length) runScanner(); });
+  document.getElementById("scRun").addEventListener("click", runScanner);
+  document.getElementById("scanTable").addEventListener("click", e=>{
+    const op=e.target.closest("[data-open]");
+    if(op){ const [symbol,market]=op.dataset.open.split("|"); openPair({symbol,market}); window.scrollTo({top:0,behavior:"smooth"}); return; }
+    const stb=e.target.closest("[data-star]");
+    if(stb){ const [symbol,market]=stb.dataset.star.split("|"); addPair({symbol,market}); renderScanner(); }
+  });
+})();
+// rescan every minute while the tab is open; every 5 minutes in the background when alerts are on
+setInterval(()=>{
+  const open=!document.getElementById("panel-scanner").hidden && !document.hidden;
+  if(open || (scanCfg().alerts && Date.now()-scanAt>5*60000)) runScanner();
+}, 60000);
+setTimeout(()=>{ if(scanCfg().alerts && !scanAt) runScanner(); }, 20000);
+
+// ============================================================================
+// MARKET OUTLOOK: BTC higher-timeframe trend, futures positioning, breadth, sentiment
+// ============================================================================
+const FAPI="https://fapi.binance.com";
+let olBusy=false, olLast=null, olPrevReading=null, olBreadth=null, olBreadthAt=0;
+async function getJSON(url, ms=10000){
+  const ac=new AbortController(), tm=setTimeout(()=>ac.abort(), ms);
+  try{ const r=await fetch(url,{signal:ac.signal}); if(!r.ok) throw new Error("HTTP "+r.status); return await r.json(); }
+  finally{ clearTimeout(tm); }
+}
+async function getBars(sym, tf, limit){
+  let raw=null;
+  for(const mkt of ["perp","spot"]){ try{ raw=await fetchPage(mkt, sym, tf, limit); if(raw && raw.length) break; }catch(e){} }
+  if(!raw) throw new Error("no data");
+  const now=Date.now();
+  return raw.map(k=>({t:Math.floor(k[0]/1000), o:+k[1], h:+k[2], l:+k[3], c:+k[4], v:+k[5], closed:k[6]<now}));
+}
+// bearish divergence = higher price high with a lower RSI high (and the reverse for bullish)
+function divergence(bars){
+  const C=bars.map(b=>b.c), H=bars.map(b=>b.h), L=bars.map(b=>b.l), rsi=rsiCalc(C,14), n=bars.length, LB=3;
+  const highs=[], lows=[];
+  for(let k=Math.max(LB,n-60);k<n-LB;k++){
+    let hi=true, lo=true;
+    for(let j=k-LB;j<=k+LB;j++){ if(j===k) continue; if(H[j]>H[k]) hi=false; if(L[j]<L[k]) lo=false; }
+    if(hi) highs.push(k); if(lo) lows.push(k);
+  }
+  const lastTwo=a=>a.slice(-2);
+  const [h1,h2]=lastTwo(highs), [l1,l2]=lastTwo(lows);
+  if(h2!==undefined && h1!==undefined && n-1-h2<=12 && H[h2]>H[h1] && rsi[h2]<rsi[h1]-2) return {d:-1, txt:`Price made a higher high, RSI a lower high (${Math.round(rsi[h1])} → ${Math.round(rsi[h2])})`};
+  if(l2!==undefined && l1!==undefined && n-1-l2<=12 && L[l2]<L[l1] && rsi[l2]>rsi[l1]+2) return {d:1, txt:`Price made a lower low, RSI a higher low (${Math.round(rsi[l1])} → ${Math.round(rsi[l2])})`};
+  return {d:0, txt:"No divergence on recent swings"};
+}
+async function computeBreadth(){
+  if(olBreadth && Date.now()-olBreadthAt<10*60000) return olBreadth;
+  let list=[];
+  try{
+    const all=await getJSON(FAPI+"/fapi/v1/ticker/24hr");
+    list=all.filter(x=>/USDT$/.test(x.symbol) && !STABLE.test(baseOf(x.symbol).base)).sort((a,b)=>b.quoteVolume-a.quoteVolume).slice(0,30);
+  }catch(e){
+    const all=await getJSON("https://data-api.binance.vision/api/v3/ticker/24hr");
+    list=all.filter(x=>/USDT$/.test(x.symbol) && !STABLE.test(baseOf(x.symbol).base)).sort((a,b)=>b.quoteVolume-a.quoteVolume).slice(0,30);
+  }
+  let bull=0, bear=0, done=0, up24=0;
+  for(const t of list) if(+t.priceChangePercent>0) up24++;
+  await pool(list, 6, async t=>{
+    try{ const a=analyzeTrend(await getBars(t.symbol,"1h",150),"1h"); if(a){ done++; if(/BULL/.test(a.state)) bull++; else if(/BEAR/.test(a.state)) bear++; } }catch(e){}
+  });
+  olBreadth={bull, bear, done, up24, total:list.length}; olBreadthAt=Date.now();
+  return olBreadth;
+}
+async function loadOutlook(force){
+  if(olBusy) return; olBusy=true;
+  if(force) olBreadthAt=0;
+  const F=[];                       // factors: {key,title,value,detail,score(-2..2)|null}
+  const add=(title,value,detail,score)=>F.push({title,value,detail,score});
+  const tasks=[
+    // 1-2. BTC trend on 4h and daily
+    (async()=>{
+      for(const [tf,name] of [["4h","BTC trend (4h)"],["1d","BTC trend (daily)"]]){
+        try{
+          const bars=await getBars("BTCUSDT",tf,300), a=analyzeTrend(bars,tf);
+          const sc= a.score>=35?2 : a.score>=10?1 : a.score<=-35?-2 : a.score<=-10?-1 : 0;
+          add(name, `${a.score>0?"+":""}${a.score}`, `${SC_LABEL[a.state][0]}, RSI ${Math.round(a.rsi)}, trend for ${a.since} candles`, sc);
+          if(tf==="4h"){ const dv=divergence(bars); add("BTC momentum (4h)", dv.d<0?"Bearish divergence":dv.d>0?"Bullish divergence":"None", dv.txt, dv.d); }
+        }catch(e){ add(name,"N/A","Couldn't load Bitcoin candles",null); }
+      }
+    })(),
+    // 3. Funding rate (BTC + average of the busiest coins)
+    (async()=>{
+      try{
+        const all=await getJSON(FAPI+"/fapi/v1/premiumIndex");
+        const btc=all.find(x=>x.symbol==="BTCUSDT"), fr=+btc.lastFundingRate*100;
+        const majors=["ETHUSDT","SOLUSDT","XRPUSDT","DOGEUSDT","BNBUSDT","ADAUSDT","SUIUSDT","LINKUSDT"].map(s=>all.find(x=>x.symbol===s)).filter(Boolean);
+        const avg=majors.reduce((a,x)=>a+ +x.lastFundingRate,0)/Math.max(1,majors.length)*100;
+        const m=(fr+avg)/2;
+        const sc= m>0.06?-2 : m>0.03?-1 : m<-0.03?2 : m<-0.01?1 : 0;
+        add("Funding rate", `${fr.toFixed(4)}%`, `BTC per 8h; major alts ${avg.toFixed(4)}%. ${sc<0?"Longs are crowded and paying a lot":sc>0?"Shorts are crowded, squeeze risk upward":"Normal, no crowding"}`, sc);
+      }catch(e){ add("Funding rate","N/A","Binance futures data isn't reachable from your network",null); }
+    })(),
+    // 4. Open interest vs price, 24h
+    (async()=>{
+      try{
+        const oi=await getJSON(FAPI+"/futures/data/openInterestHist?symbol=BTCUSDT&period=1h&limit=25");
+        const k=await getJSON(FAPI+"/fapi/v1/klines?symbol=BTCUSDT&interval=1h&limit=25");
+        const o0=+oi[0].sumOpenInterestValue, o1=+oi[oi.length-1].sumOpenInterestValue, dOI=(o1/o0-1)*100;
+        const dP=(+k[k.length-1][4] / +k[0][4] - 1)*100;
+        let sc=0, txt;
+        if(dOI>3 && dP<-1){ sc=-1; txt="New positions while price falls: shorts are pressing"; }
+        else if(dOI>3 && dP>1){ sc=1; txt="New positions while price rises: buyers are adding"; }
+        else if(dOI<-3 && dP>1){ sc=0; txt="Price up while positions close: mostly shorts covering, weaker rally"; }
+        else if(dOI<-3 && dP<-1){ sc=0; txt="Price down while positions close: longs being flushed, selling may be easing"; }
+        else txt="No strong build-up either way";
+        add("Open interest (24h)", `${dOI>=0?"+":""}${dOI.toFixed(1)}%`, `BTC price ${dP>=0?"+":""}${dP.toFixed(1)}%. ${txt}`, sc);
+      }catch(e){ add("Open interest (24h)","N/A","Binance futures data isn't reachable from your network",null); }
+    })(),
+    // 5. Long/short account ratio (contrarian)
+    (async()=>{
+      try{
+        const r=await getJSON(FAPI+"/futures/data/globalLongShortAccountRatio?symbol=BTCUSDT&period=1h&limit=2");
+        const v=+r[r.length-1].longShortRatio, lp=+r[r.length-1].longAccount*100;
+        const sc= v>2.8?-2 : v>2.0?-1 : v<0.7?2 : v<0.9?1 : 0;
+        add("Long / short ratio", v.toFixed(2), `${lp.toFixed(0)}% of BTC accounts are long. ${sc<0?"Crowd heavily long, downside risk":sc>0?"Crowd heavily short, upside squeeze risk":"Balanced"}`, sc);
+      }catch(e){ add("Long / short ratio","N/A","Binance futures data isn't reachable from your network",null); }
+    })(),
+    // 6. Breadth across the top 30 coins (1h trend)
+    (async()=>{
+      try{
+        const b=await computeBreadth(), net=b.done?(b.bull-b.bear)/b.done*100:0;
+        const sc= net>30?2 : net>10?1 : net<-30?-2 : net<-10?-1 : 0;
+        add("Market breadth (1h)", `${b.bull} up / ${b.bear} down`, `Of the top ${b.total} coins. ${b.up24} of ${b.total} are green over 24h`, sc);
+      }catch(e){ add("Market breadth (1h)","N/A","Couldn't load coin data",null); }
+    })(),
+    // 7. Fear & Greed index (contrarian at the extremes)
+    (async()=>{
+      try{
+        const j=await getJSON("https://api.alternative.me/fng/?limit=2"), v=+j.data[0].value, prev=+j.data[1].value;
+        const sc= v>=75?-1 : v<=25?1 : 0;
+        add("Fear & Greed", `${v} (${j.data[0].value_classification})`, `Yesterday ${prev}. ${sc<0?"Extreme greed often comes before pullbacks":sc>0?"Extreme fear often comes before bounces":"Not at an extreme"}`, sc);
+      }catch(e){ add("Fear & Greed","N/A","Sentiment index unavailable right now",null); }
+    })(),
+    // 8. Total market cap 24h (information only)
+    (async()=>{
+      try{
+        const g=(await getJSON(CG_API+"/global")).data;
+        add("Total crypto market", `${pctTxt(g.market_cap_change_percentage_24h_usd)} 24h`, `BTC dominance ${g.market_cap_percentage.btc.toFixed(1)}%. Shown for context, not scored`, null);
+      }catch(e){}
+    })()
+  ];
+  await Promise.all(tasks);
+  const order=["BTC trend (daily)","BTC trend (4h)","BTC momentum (4h)","Market breadth (1h)","Funding rate","Open interest (24h)","Long / short ratio","Fear & Greed","Total crypto market"];
+  F.sort((a,b)=>order.indexOf(a.title)-order.indexOf(b.title));
+  const scored=F.filter(f=>f.score!==null), total=scored.reduce((a,f)=>a+f.score,0);
+  const reading= scored.length<3 ? "Not enough data" : total>=3 ? "Leaning bullish" : total<=-3 ? "Leaning bearish" : "Neutral";
+  olLast={F, total, reading, at:Date.now(), n:scored.length};
+  renderOutlook();
+  // alert when the overall lean changes
+  if(olPrevReading && reading!==olPrevReading && reading!=="Not enough data"){
+    const why=scored.filter(f=>Math.sign(f.score)===Math.sign(total) && f.score!==0).map(f=>f.title).slice(0,4).join(", ");
+    const msg=`Market outlook changed: ${olPrevReading} → ${reading} (score ${total>0?"+":""}${total}).${why?`\nDriven by: ${why}.`:""}`;
+    toast(msg, reading==="Leaning bullish"?TV.lime:reading==="Leaning bearish"?TV.red:"#787B86");
+    if(alertsOn){ beep(); if("Notification" in window && Notification.permission==="granted"){ try{ new Notification("MAX Signals outlook",{body:msg}); }catch(_){} } }
+  }
+  if(reading!=="Not enough data") olPrevReading=reading;
+  olBusy=false;
+  loadCoinPositioning();
+}
+function renderOutlook(){
+  if(!olLast) return;
+  const {F,total,reading,at,n}=olLast;
+  const pill=document.getElementById("olReading");
+  pill.textContent=reading; pill.className="olPill "+(reading==="Leaning bullish"?"bull":reading==="Leaning bearish"?"bear":"neutral");
+  document.getElementById("olScore").textContent= n ? `Score ${total>0?"+":""}${total} from ${n} signals (−${n*2} to +${n*2})` : "";
+  document.getElementById("olWhen").textContent=`Updated ${new Date(at).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}`;
+  const tag=sc=> sc===null ? `<span class="olTag na">info</span>` : sc>0 ? `<span class="olTag bull">Bullish${sc>1?" ×2":""}</span>` : sc<0 ? `<span class="olTag bear">Bearish${sc<-1?" ×2":""}</span>` : `<span class="olTag neutral">Neutral</span>`;
+  document.getElementById("olGrid").innerHTML=F.map(f=>`<div class="olCard"><div class="t"><span>${f.title}</span>${tag(f.score)}</div><div class="v">${f.value}</div><div class="d">${f.detail}</div></div>`).join("");
+}
+// positioning for the coin on the chart (futures only)
+async function loadCoinPositioning(){
+  const el=document.getElementById("olCoin");
+  if(cfg.market!=="perp" || cfg.symbol==="BTCUSDT"){ el.textContent=""; return; }
+  try{
+    const [pi,oi,ls]=await Promise.all([
+      getJSON(`${FAPI}/fapi/v1/premiumIndex?symbol=${cfg.symbol}`),
+      getJSON(`${FAPI}/futures/data/openInterestHist?symbol=${cfg.symbol}&period=1h&limit=25`),
+      getJSON(`${FAPI}/futures/data/globalLongShortAccountRatio?symbol=${cfg.symbol}&period=1h&limit=1`)
+    ]);
+    const fr=+pi.lastFundingRate*100, dOI=(+oi[oi.length-1].sumOpenInterestValue / +oi[0].sumOpenInterestValue - 1)*100, r=+ls[0].longShortRatio;
+    const warn= fr>0.05||r>2.5 ? " Longs look crowded on this coin." : fr<-0.03||r<0.8 ? " Shorts look crowded on this coin." : "";
+    el.innerHTML=`<b>${pairName()}:</b> funding ${fr.toFixed(4)}%, open interest ${dOI>=0?"+":""}${dOI.toFixed(1)}% in 24h, long/short ${r.toFixed(2)}.${warn}`;
+  }catch(e){ el.textContent=""; }
+}
+function applyOutlookOpen(){
+  const open=cfg.outlookOpen!==false, box=document.getElementById("outlook"), b=document.getElementById("olToggle");
+  box.classList.toggle("collapsed", !open); b.textContent= open?"Hide details":"Show details"; b.setAttribute("aria-expanded", open?"true":"false");
+}
+document.getElementById("olToggle").addEventListener("click", ()=>{ cfg.outlookOpen= cfg.outlookOpen===false; saveCfg(); applyOutlookOpen(); });
+document.getElementById("olRefresh").addEventListener("click", ()=>loadOutlook(true));
+setInterval(()=>{ if(!document.hidden) loadOutlook(false); }, 5*60000);
+setTimeout(()=>loadOutlook(false), 2500);
 
 function buildSettings(){
   document.getElementById("settingsForm").innerHTML=FIELDS.map(([title,items])=>`<fieldset><legend>${title}</legend>`+items.map(([key,label,type,a,b])=>
@@ -2414,6 +3050,7 @@ syncRulesUI();
 applyTheme();
 applyVolumeLayout();
 applyWatchVisibility();
+applyOutlookOpen();
 renderWatch();
 start();
 </script>
